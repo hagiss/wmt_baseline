@@ -253,6 +253,8 @@ def main():
             
     )
 
+    print(dir(model))
+
     model.resize_token_embeddings(len(tokenizer))
 
     # Metric for evaluating generated translations
