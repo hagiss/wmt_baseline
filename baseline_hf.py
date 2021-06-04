@@ -253,8 +253,6 @@ def main():
             
     )
 
-    print(dir(model))
-
     model.resize_token_embeddings(len(tokenizer))
 
     # Metric for evaluating generated translations
@@ -345,6 +343,7 @@ def main():
                 compute_metrics=compute_metrics
      )
     """
+    print(dir(model))
 
     # Train the model
     if training_args.do_train:
