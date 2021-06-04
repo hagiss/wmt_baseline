@@ -344,7 +344,7 @@ def main():
      )
     """
     print(dir(model))
-
+"""
     # Train the model
     if training_args.do_train:
         checkpoint = None
@@ -416,6 +416,7 @@ def main():
     #    trainer.push_to_hub()
 
     return results
+    """
 
 if __name__ == "__main__":
     main()
