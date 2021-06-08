@@ -403,18 +403,22 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
         inputs['output_hidden_states'] = True
         inputs['output_attentions'] = True
         outputs = model(**inputs)
+        batch, seq, di = outputs.encoder_hidden_states[0].shape
 
-        encoder_mask = outputs.encoder_attentions[0][:, 0, 0, :].bool().expand([32, 128, 512]).float()
+        encoder_mask = outputs.encoder_attentions[0].detach()[:, 0, 0, :].bool().unsqueeze(-1).expand([batch, seq, di]).float()
         decoder_mask = inputs['labels'] >= 0
-        decoder_mask = decoder_mask.expand([32, 128, 512]).float()
+        _, d_seq = decoder_mask.shape
+        decoder_mask = decoder_mask.unsqueeze(-1).expand([batch, d_seq, di]).float()
 
-        encoder_embed = encoder_mask*outputs.encoder_hidden_states[0].sum(dim=1) / (encoder_mask!=0).sum(dim=1)
-        decoder_embed = decoder_mask*outputs.decoder_hidden_states[0].sum(dim=1) / (decoder_mask!=0).sum(dim=1)
+        # print((encoder_mask*outputs.encoder_hidden_states[0]).sum(dim=1).shape)
+        # print((encoder_mask!=0).sum(dim=1).shape)
+
+        encoder_embed = (encoder_mask*outputs.encoder_hidden_states[0]).sum(dim=1) / (encoder_mask!=0).sum(dim=1)
+        decoder_embed = (decoder_mask*outputs.decoder_hidden_states[0]).sum(dim=1) / (decoder_mask!=0).sum(dim=1)
 
         encoder_embed = F.normalize(encoder_embed, dim=1)
         decoder_embed = F.normalize(decoder_embed, dim=1)
 
-        batch, _ = encoder_embed.shape
 
         info_nce_labels = torch.arange(batch).cuda()
         # print(info_nce_labels)
