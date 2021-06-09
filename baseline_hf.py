@@ -15,7 +15,6 @@ import random
 import pandas as pd
 import torch.nn.functional as F
 import torch
-import sacrebleu as scb
 
 from transformers import (
     AutoConfig,
@@ -416,9 +415,11 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
         encoder_embed = (encoder_mask*outputs.encoder_hidden_states[0]).sum(dim=1) / (encoder_mask!=0).sum(dim=1)
         decoder_embed = (decoder_mask*outputs.decoder_hidden_states[0]).sum(dim=1) / (decoder_mask!=0).sum(dim=1)
 
+        encoder_embed = model.mlp1(encoder_embed)
+        decoder_embed = model.mlp2(decoder_embed)
+
         encoder_embed = F.normalize(encoder_embed, dim=1)
         decoder_embed = F.normalize(decoder_embed, dim=1)
-
 
         info_nce_labels = torch.arange(batch).cuda()
         # print(info_nce_labels)
@@ -447,67 +448,19 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
 
         return (loss, outputs) if return_outputs else loss
 
-class Sacrebleu(datasets.Metric):
-    def _info(self):
-        if version.parse(scb.__version__) < version.parse("1.4.12"):
-            raise ImportWarning(
-                "To use `sacrebleu`, the module `sacrebleu>=1.4.12` is required, and the current version of `sacrebleu` doesn't match this condition.\n"
-                'You can install it with `pip install "sacrebleu>=1.4.12"`.'
-            )
-        return datasets.MetricInfo(
-            description=_DESCRIPTION,
-            citation=_CITATION,
-            homepage="https://github.com/mjpost/sacreBLEU",
-            inputs_description=_KWARGS_DESCRIPTION,
-            features=datasets.Features(
-                {
-                    "predictions": datasets.Value("string", id="sequence"),
-                    "references": datasets.Sequence(datasets.Value("string", id="sequence"), id="references"),
-                }
-            ),
-            codebase_urls=["https://github.com/mjpost/sacreBLEU"],
-            reference_urls=[
-                "https://github.com/mjpost/sacreBLEU",
-                "https://en.wikipedia.org/wiki/BLEU",
-                "https://towardsdatascience.com/evaluating-text-output-in-nlp-bleu-at-your-own-risk-e8609665a213",
-            ],
+
+class MLP(torch.nn.Module):
+    def __init__(self, dim, projection_size, hidden_size = 4096):
+        super().__init__()
+        self.net = torch.nn.Sequential(
+            torch.nn.LayerNorm(dim)
+            torch.nn.Linear(dim, hidden_size),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Linear(hidden_size, projection_size)
         )
 
-    def _compute(
-        self,
-        predictions,
-        references,
-        smooth_method="exp",
-        smooth_value=None,
-        force=False,
-        lowercase=False,
-        tokenize=scb.DEFAULT_TOKENIZER,
-        use_effective_order=False,
-    ):
-        references_per_prediction = len(references[0])
-        if any(len(refs) != references_per_prediction for refs in references):
-            raise ValueError("Sacrebleu requires the same number of references for each prediction")
-        transformed_references = [[refs[i] for refs in references] for i in range(references_per_prediction)]
-        output = scb.corpus_bleu(
-            sys_stream=predictions,
-            ref_streams=transformed_references,
-            smooth_method=smooth_method,
-            smooth_value=smooth_value,
-            force=force,
-            lowercase=lowercase,
-            tokenize=tokenize,
-            use_effective_order=use_effective_order,
-        )
-        output_dict = {
-            "score": output.score,
-            "counts": output.counts,
-            "totals": output.totals,
-            "precisions": output.precisions,
-            "bp": output.bp,
-            "sys_len": output.sys_len,
-            "ref_len": output.ref_len,
-        }
-        return output_dict
+    def forward(self, x):
+        return self.net(x)
 
 
 def main():
@@ -560,14 +513,17 @@ def main():
 
     )
 
+    model.mlp1 = MLP(512, 256)
+    model.mlp2 = MLP(512, 256)
+
     # print(inspect.getsource(model.forward))
     model.resize_token_embeddings(len(tokenizer))
     # model.forward = alternative_forward.__get__(model, MarianMTModel)
     # model.model.forward = al_forward2.__get__(model.model, MarianModel)
 
     # Metric for evaluating generated translations
-    # metric = load_metric("sacrebleu")
-    metric = Sacrebleu
+    metric = load_metric("sacrebleu")
+    # metric = Sacrebleu
 
     """
     batch_size = 32
