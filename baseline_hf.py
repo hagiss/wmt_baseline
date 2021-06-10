@@ -453,7 +453,7 @@ class MLP(torch.nn.Module):
     def __init__(self, dim, projection_size, hidden_size = 4096):
         super().__init__()
         self.net = torch.nn.Sequential(
-            torch.nn.LayerNorm(dim)
+            torch.nn.LayerNorm(dim),
             torch.nn.Linear(dim, hidden_size),
             torch.nn.ReLU(inplace=True),
             torch.nn.Linear(hidden_size, projection_size)
