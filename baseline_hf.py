@@ -241,14 +241,14 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
         encoder_embed = model.mlp1(encoder_embed)
         decoder_embed = model.mlp1(decoder_embed)
 
-        encoder_embed = F.normalize(encoder_embed, dim=1)
+        encoder_embed = F.normalize(encoder_embed.detach(), dim=1)
         decoder_embed = F.normalize(decoder_embed, dim=1)
 
         similarity_matrix = torch.matmul(encoder_embed, decoder_embed.T) / 0.1
-        sim_matrix = torch.matmul(encoder_embed, encoder_embed.T) / 0.1
 
-        mask = torch.ones_like(sim_matrix).scatter_(1, info_nce_labels.unsqueeze(1), 0.).cuda()
-        similarity_matrix = torch.cat([similarity_matrix, sim_matrix[mask.bool()].view(batch, -1)], dim=1)
+        # sim_matrix = torch.matmul(encoder_embed, encoder_embed.T) / 0.1
+        # mask = torch.ones_like(sim_matrix).scatter_(1, info_nce_labels.unsqueeze(1), 0.).cuda()
+        # similarity_matrix = torch.cat([similarity_matrix, sim_matrix[mask.bool()].view(batch, -1)], dim=1)
 
         info_nce_loss = criterion(similarity_matrix, info_nce_labels)
 

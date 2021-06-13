@@ -1,6 +1,6 @@
 {
-  "eval_bleu": 40.2237,
-  "eval_gen_len": 36.6529,
+  "eval_bleu": 40.4625,
+  "eval_gen_len": 36.552,
   "eval_loss": 0.7986200451850891,
   "eval_mem_cpu_alloc_delta": 671744,
   "eval_mem_cpu_peaked_delta": 0,

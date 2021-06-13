@@ -1,6 +1,6 @@
 {
-  "predict_bleu": 37.6825,
-  "predict_gen_len": 39.8757,
+  "predict_bleu": 37.9961,
+  "predict_gen_len": 39.9005,
   "predict_loss": 1.256868839263916,
   "predict_runtime": 228.6635,
   "predict_samples": 2100,
