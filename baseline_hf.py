@@ -209,183 +209,7 @@ class DataTrainingArguments:
         print(self.val_max_target_length, self.max_target_length)
 
 
-def al_forward2(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        encoder_outputs=None,
-        past_key_values=None,
-        inputs_embeds=None,
-        decoder_inputs_embeds=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-):
-    r"""
-    Returns:
-
-    Example::
-
-        >>> from transformers import MarianTokenizer, MarianModel
-
-        >>> tokenizer = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-en-de')
-        >>> model = MarianModel.from_pretrained('Helsinki-NLP/opus-mt-en-de')
-
-        >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
-        >>> decoder_input_ids = tokenizer("<pad> Studien haben gezeigt dass es hilfreich ist einen Hund zu besitzen",
-        ... return_tensors="pt", add_special_tokens=False).input_ids  # Batch size 1
-        >>> outputs = model(input_ids=input_ids, decoder_input_ids=decoder_input_ids)
-
-        >>> last_hidden_states = outputs.last_hidden_state
-    """
-    output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-    output_hidden_states = (
-        output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-    )
-    use_cache = use_cache if use_cache is not None else self.config.use_cache
-    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-    if encoder_outputs is None:
-        encoder_outputs = self.encoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-    # If the user passed a tuple for encoder_outputs, we wrap it in a BaseModelOutput when return_dict=True
-    elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
-        encoder_outputs = BaseModelOutput(
-            last_hidden_state=encoder_outputs[0],
-            hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
-            attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
-        )
-    print(encoder_outputs.hidden_states)
-
-    # decoder outputs consists of (dec_features, past_key_value, dec_hidden, dec_attn)
-    decoder_outputs = self.decoder(
-        input_ids=decoder_input_ids,
-        attention_mask=decoder_attention_mask,
-        encoder_hidden_states=encoder_outputs[0],
-        encoder_attention_mask=attention_mask,
-        head_mask=decoder_head_mask,
-        encoder_head_mask=head_mask,
-        past_key_values=past_key_values,
-        inputs_embeds=decoder_inputs_embeds,
-        use_cache=use_cache,
-        output_attentions=output_attentions,
-        output_hidden_states=output_hidden_states,
-        return_dict=return_dict,
-    )
-
-    if not return_dict:
-        return decoder_outputs + encoder_outputs
-
-    return {
-        'last_hidden_state': decoder_outputs.last_hidden_state,
-    }
-
-    # return Seq2SeqModelOutput(
-    #     last_hidden_state=decoder_outputs.last_hidden_state,
-    #     past_key_values=decoder_outputs.past_key_values,
-    #     decoder_hidden_states=decoder_outputs.hidden_states,
-    #     decoder_attentions=decoder_outputs.attentions,
-    #     cross_attentions=decoder_outputs.cross_attentions,
-    #     encoder_last_hidden_state=encoder_outputs.last_hidden_state,
-    #     encoder_hidden_states=encoder_outputs.hidden_states,
-    #     encoder_attentions=encoder_outputs.attentions,
-    # )
-
-
-def alternative_forward(
-        self,
-        input_ids=None,
-        attention_mask=None,
-        decoder_input_ids=None,
-        decoder_attention_mask=None,
-        head_mask=None,
-        decoder_head_mask=None,
-        cross_attn_head_mask=None,
-        encoder_outputs=None,
-        past_key_values=None,
-        inputs_embeds=None,
-        decoder_inputs_embeds=None,
-        labels=None,
-        use_cache=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-):
-    r"""
-    labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
-        Labels for computing the masked language modeling loss. Indices should either be in ``[0, ...,
-        config.vocab_size]`` or -100 (see ``input_ids`` docstring). Tokens with indices set to ``-100`` are ignored
-        (masked), the loss is only computed for the tokens with labels in ``[0, ..., config.vocab_size]``.
-
-    Returns:
-
-    """
-    return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-    if labels is not None:
-        if decoder_input_ids is None:
-            decoder_input_ids = shift_tokens_right(
-                labels, self.config.pad_token_id, self.config.decoder_start_token_id
-            )
-
-    outputs = self.model(
-        input_ids,
-        attention_mask=attention_mask,
-        decoder_input_ids=decoder_input_ids,
-        encoder_outputs=encoder_outputs,
-        decoder_attention_mask=decoder_attention_mask,
-        head_mask=head_mask,
-        decoder_head_mask=decoder_head_mask,
-        past_key_values=past_key_values,
-        inputs_embeds=inputs_embeds,
-        decoder_inputs_embeds=decoder_inputs_embeds,
-        use_cache=use_cache,
-        output_attentions=output_attentions,
-        output_hidden_states=output_hidden_states,
-        return_dict=return_dict,
-    )
-    # print(inspect.getsource(self.model.forward))
-    print(outputs.encoder_hidden_states[0].shape)
-    print(outputs.decoder_hidden_states[0].shape)
-    lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
-    print(labels.shape)
-
-    masked_lm_loss = None
-    if labels is not None:
-        loss_fct = CrossEntropyLoss()
-        masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
-
-    if not return_dict:
-        output = (lm_logits,) + outputs[1:]
-        return ((masked_lm_loss,) + output) if masked_lm_loss is not None else output
-
-    return Seq2SeqLMOutput(
-        loss=masked_lm_loss,
-        logits=lm_logits,
-        past_key_values=outputs.past_key_values,
-        decoder_hidden_states=outputs.decoder_hidden_states,
-        decoder_attentions=outputs.decoder_attentions,
-        cross_attentions=outputs.cross_attentions,
-        encoder_last_hidden_state=outputs.encoder_last_hidden_state,
-        encoder_hidden_states=outputs.encoder_hidden_states,
-        encoder_attentions=outputs.encoder_attentions,
-    )
-
-
 criterion = torch.nn.CrossEntropyLoss()
-
 
 class new_Seq2SeqTrainer(Seq2SeqTrainer):
     def compute_loss(self, model, inputs, return_outputs=False):
@@ -409,22 +233,22 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
         _, d_seq = decoder_mask.shape
         decoder_mask = decoder_mask.unsqueeze(-1).expand([batch, d_seq, di]).float()
 
-        # print((encoder_mask*outputs.encoder_hidden_states[0]).sum(dim=1).shape)
-        # print((encoder_mask!=0).sum(dim=1).shape)
+        info_nce_labels = torch.arange(batch).cuda()
 
         encoder_embed = (encoder_mask*outputs.encoder_hidden_states[0]).sum(dim=1) / (encoder_mask!=0).sum(dim=1)
         decoder_embed = (decoder_mask*outputs.decoder_hidden_states[0]).sum(dim=1) / (decoder_mask!=0).sum(dim=1)
 
         encoder_embed = model.mlp1(encoder_embed)
-        decoder_embed = model.mlp2(decoder_embed)
+        decoder_embed = model.mlp1(decoder_embed)
 
         encoder_embed = F.normalize(encoder_embed, dim=1)
         decoder_embed = F.normalize(decoder_embed, dim=1)
 
-        info_nce_labels = torch.arange(batch).cuda()
-        # print(info_nce_labels)
-
         similarity_matrix = torch.matmul(encoder_embed, decoder_embed.T) / 0.1
+        sim_matrix = torch.matmul(encoder_embed, encoder_embed.T) / 0.1
+
+        mask = torch.ones_like(sim_matrix).scatter_(1, info_nce_labels.unsqueeze(1), 0.).cuda()
+        similarity_matrix = torch.cat([similarity_matrix, sim_matrix[mask.bool()].view(batch, -1)], dim=1)
 
         info_nce_loss = criterion(similarity_matrix, info_nce_labels)
 
@@ -444,7 +268,7 @@ class new_Seq2SeqTrainer(Seq2SeqTrainer):
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
 
-        loss += info_nce_loss
+        loss += 0.5 * info_nce_loss
 
         return (loss, outputs) if return_outputs else loss
 
@@ -514,7 +338,6 @@ def main():
     )
 
     model.mlp1 = MLP(512, 256)
-    model.mlp2 = MLP(512, 256)
 
     # print(inspect.getsource(model.forward))
     model.resize_token_embeddings(len(tokenizer))
